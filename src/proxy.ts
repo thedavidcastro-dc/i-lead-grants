@@ -1,7 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/auth/confirm", "/auth/error"];
+// Routes that authenticate themselves (signature / secret) or are pre-login.
+const PUBLIC_PATHS = ["/login", "/auth/confirm", "/auth/error", "/api/qbo/webhook", "/api/qbo/cron"];
 
 /**
  * Refreshes the Supabase session cookie on every request and sends

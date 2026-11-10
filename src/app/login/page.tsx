@@ -11,7 +11,13 @@ async function sendLink(formData: FormData) {
     email,
     options: { emailRedirectTo: `${publicEnv.siteUrl}/auth/confirm`, shouldCreateUser: true },
   });
-  if (error) redirect(`/login?error=${encodeURIComponent(error.message)}`);
+  if (error) {
+    // The shared sign-up trigger rejects uninvited emails; Supabase surfaces that as a generic DB error.
+    const friendly = /database error saving new user/i.test(error.message)
+      ? "This email hasn't been invited. Ask an administrator to add it, or sign in with your invited address."
+      : error.message;
+    redirect(`/login?error=${encodeURIComponent(friendly)}`);
+  }
   redirect(`/login?sent=${encodeURIComponent(email)}`);
 }
 

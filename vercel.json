@@ -1,0 +1,5 @@
+{
+  "crons": [
+    { "path": "/api/qbo/cron", "schedule": "0 * * * *" }
+  ]
+}

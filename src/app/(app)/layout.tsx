@@ -3,8 +3,10 @@ import { requireProfile } from "@/lib/auth";
 
 const nav = [
   { href: "/", label: "Overview" },
+  { href: "/ledger", label: "Ledger" },
   { href: "/reference/accounts", label: "Accounts" },
   { href: "/reference/classes", label: "Classes" },
+  { href: "/settings/sync", label: "Sync", admin: true },
   { href: "/settings/quickbooks", label: "QuickBooks", admin: true },
 ];
 
