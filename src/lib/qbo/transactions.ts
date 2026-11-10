@@ -256,7 +256,10 @@ export async function syncChanges(startedBy: string | null, kind: "cdc" | "webho
     const g = db.schema("grants");
     const { data: conn } = await g.from("qbo_connection").select("last_cdc_at, initial_load_to").eq("id", 1).maybeSingle();
     const now = new Date();
-    let since = conn?.last_cdc_at ? new Date(conn.last_cdc_at) : new Date(now.getTime() - 29 * 86400000);
+    if (!conn?.last_cdc_at) {
+      throw new Error("No transactions loaded yet. Run a date-range load first; incremental sync continues from there.");
+    }
+    let since = new Date(conn.last_cdc_at);
     since = new Date(since.getTime() - 5 * 60 * 1000); // overlap for safety
     if (now.getTime() - since.getTime() > 29 * 86400000) {
       throw new Error("Last sync is older than 30 days; run a date-range load to catch up before incremental sync.");
