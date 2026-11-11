@@ -59,7 +59,8 @@ export default async function LoginPage({
               Email me a sign-in link
             </button>
             <p className="text-xs text-muted">
-              Only invited addresses can sign in. Ask an administrator if yours isn&apos;t.
+              Only invited addresses can sign in. Ask an administrator if yours isn&apos;t, or email{" "}
+              <a href="mailto:dc@i-leadusa.org?subject=GrantBridge%20support" className="text-navy underline">support</a>.
             </p>
           </form>
         )}

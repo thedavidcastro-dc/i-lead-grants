@@ -40,7 +40,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </header>
       <main className="mx-auto w-full max-w-6xl px-4 py-8 flex-1">{children}</main>
       <footer className="border-t border-line text-xs text-muted px-4 py-3 text-center">
-        I-LEAD GrantBridge · QuickBooks is read, never written
+        I-LEAD GrantBridge · QuickBooks is read, never written ·{" "}
+        <a href="mailto:dc@i-leadusa.org?subject=GrantBridge%20support" className="text-navy underline">Support</a> ·{" "}
+        <Link href="/legal/terms" className="underline">Terms</Link> · <Link href="/legal/privacy" className="underline">Privacy</Link>
       </footer>
     </div>
   );
