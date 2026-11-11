@@ -3,11 +3,14 @@ import { requireProfile } from "@/lib/auth";
 
 const nav = [
   { href: "/", label: "Overview" },
+  { href: "/grants", label: "Grants" },
+  { href: "/funders", label: "Funders" },
   { href: "/ledger", label: "Ledger" },
   { href: "/reference/accounts", label: "Accounts" },
   { href: "/reference/classes", label: "Classes" },
   { href: "/settings/sync", label: "Sync", admin: true },
   { href: "/settings/quickbooks", label: "QuickBooks", admin: true },
+  { href: "/settings/ai", label: "AI", admin: true },
 ];
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
