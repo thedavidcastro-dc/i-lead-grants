@@ -215,8 +215,9 @@ export async function approveBudgetVersion(fd: FormData) {
   if (error) redirect(`/grants/${grantId}?error=${encodeURIComponent(error.message)}`);
   // Carry header facts from the extraction onto the grant where the grant is still blank.
   const ex = (ver.extraction ?? {}) as Record<string, unknown>;
-  const { data: grant } = await g.from("grants").select("award_amount, cost_period_start, cost_period_end, award_number").eq("id", grantId).maybeSingle();
+  const { data: grant } = await g.from("grants").select("award_amount, cost_period_start, cost_period_end, award_number, reporting").eq("id", grantId).maybeSingle();
   const patch: Record<string, unknown> = {};
+  if (grant && Array.isArray(grant.reporting) && grant.reporting.length === 0 && Array.isArray(ex.reporting) && ex.reporting.length) patch.reporting = ex.reporting;
   if (grant && grant.award_amount == null && typeof ex.award_amount === "number") patch.award_amount = ex.award_amount;
   if (grant && !grant.cost_period_start && typeof ex.cost_period_start === "string") patch.cost_period_start = ex.cost_period_start;
   if (grant && !grant.cost_period_end && typeof ex.cost_period_end === "string") patch.cost_period_end = ex.cost_period_end;

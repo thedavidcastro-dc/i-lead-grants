@@ -16,8 +16,13 @@ export default async function GrantPage({ params, searchParams }: { params: Prom
   if (!grant) notFound();
   const [docs, versions, funders, g, current] = await Promise.all([listDocuments(id, grant.funder_id), listBudgetVersions(id), listFunders(), db(), currentBudget(id)]);
   const { data: classes } = await g.from("qbo_classes").select("id, name").eq("active", true).order("name");
-  const { data: mapped } = current ? await g.from("budget_line_accounts").select("budget_line_id").in("budget_line_id", current.lines.map((l) => l.id)) : { data: [] };
+  const lineIds = current?.lines.map((l) => l.id) ?? [];
+  const [{ data: mapped }, { data: actuals }] = lineIds.length
+    ? await Promise.all([g.from("budget_line_accounts").select("budget_line_id").in("budget_line_id", lineIds), g.from("budget_line_actuals").select("budget_line_id, allocated, allocation_count").in("budget_line_id", lineIds)])
+    : [{ data: [] }, { data: [] }];
   const mappedLines = new Set((mapped ?? []).map((m) => m.budget_line_id));
+  const actualBy = new Map((actuals ?? []).map((a) => [a.budget_line_id, { allocated: Number(a.allocated), n: Number(a.allocation_count) }]));
+  const spentTotal = [...actualBy.values()].reduce((s, a) => s + a.allocated, 0);
   const isAdmin = me.role === "admin";
   const ind = grant.indirect_rule as { type?: string; rate?: number; base?: string };
 
@@ -51,17 +56,25 @@ export default async function GrantPage({ params, searchParams }: { params: Prom
               <p>Current approved budget: <span className="font-mono">{money(current.version.total)}</span> · {current.lines.length} lines · approved {fmtDate(current.version.approved_at)}
                 {" "}· <Link href={`/grants/${id}/budget/${current.version.id}`} className="text-navy underline">view</Link></p>
               <table className="w-full">
+                <thead className="text-left text-xs uppercase tracking-wide text-muted font-mono"><tr><th className="py-1">Line</th><th className="text-right">Budget</th><th className="text-right">Charged</th><th className="text-right">Remaining</th><th></th></tr></thead>
                 <tbody>
-                  {current.lines.map((l) => (
-                    <tr key={l.id} className="border-t border-line">
-                      <td className="py-1">{l.category}{l.description && <span className="text-muted"> · {l.description}</span>}</td>
-                      <td className="text-right font-mono whitespace-nowrap">{money(l.amount)}</td>
-                      <td className="pl-3 text-xs">{mappedLines.has(l.id) ? <span className="text-good">mapped</span> : <span className="text-warn">unmapped</span>}</td>
-                    </tr>
-                  ))}
+                  {current.lines.map((l) => {
+                    const a = actualBy.get(l.id) ?? { allocated: 0, n: 0 };
+                    const remaining = Number(l.amount) - a.allocated;
+                    return (
+                      <tr key={l.id} className="border-t border-line">
+                        <td className="py-1">{l.category}{!mappedLines.has(l.id) && <span className="text-warn text-xs"> · unmapped</span>}</td>
+                        <td className="text-right font-mono whitespace-nowrap">{money(l.amount)}</td>
+                        <td className="text-right font-mono whitespace-nowrap">{a.n > 0 ? <Link href={`/grants/${id}/lines?line=${l.id}`} className="text-navy underline">{money(a.allocated)}</Link> : <span className="text-muted">—</span>}</td>
+                        <td className={`text-right font-mono whitespace-nowrap ${remaining < 0 ? "text-accent" : ""}`}>{money(remaining)}</td>
+                        <td className="pl-2 w-24"><div className="h-1.5 rounded bg-line overflow-hidden"><div className={`h-full ${remaining < 0 ? "bg-accent" : "bg-navy"}`} style={{ width: `${Math.min(100, Number(l.amount) > 0 ? (a.allocated / Number(l.amount)) * 100 : 0)}%` }} /></div></td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
+                <tfoot><tr className="border-t-2 border-line-strong font-medium"><td className="py-1">Total</td><td className="text-right font-mono">{money(current.version.total)}</td><td className="text-right font-mono">{money(spentTotal)}</td><td className="text-right font-mono">{money(Number(current.version.total ?? 0) - spentTotal)}</td><td></td></tr></tfoot>
               </table>
-              <p><Link href={`/grants/${id}/mapping`} className="text-navy underline">Account mapping</Link></p>
+              <p className="flex gap-4"><Link href={`/grants/${id}/mapping`} className="text-navy underline">Account mapping</Link><Link href={`/grants/${id}/lines`} className="text-navy underline">All charged expenses</Link><Link href="/queue" className="text-navy underline">Classification queue</Link></p>
             </div>
           ) : (
             <p className="text-sm text-muted">No approved budget yet.</p>
