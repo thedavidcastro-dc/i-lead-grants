@@ -44,7 +44,7 @@ export async function ensureDispositions(): Promise<{ created: number; payroll: 
     if (isPayroll) payrollCount++;
     return isPayroll
       ? { line_id: l.id, txn_date: l.txn_date, status: "approved", kind: "payroll", auto: true, decided_at: new Date().toISOString(), note: "Payroll entry — allocated through the payroll module" }
-      : { line_id: l.id, txn_date: l.txn_date, status: "pending" };
+      : { line_id: l.id, txn_date: l.txn_date, status: "pending", auto: false, kind: null, decided_at: null, note: null };
   });
   for (let i = 0; i < rows.length; i += 500) {
     const { error } = await g.from("dispositions").insert(rows.slice(i, i + 500));
