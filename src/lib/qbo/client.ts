@@ -13,21 +13,27 @@ async function request<T>(path: string, params: Record<string, string> = {}): Pr
   const { token, realmId } = await getAccessToken();
   const u = new URL(`${baseUrl()}/v3/company/${realmId}${path}`);
   u.searchParams.set("minorversion", MINOR_VERSION);
-  for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
+  for (const [k, v] of Object.entries(params)) if (!k.startsWith("__")) u.searchParams.set(k, v);
   const res = await fetch(u, {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
     cache: "no-store",
   });
-  if (res.status === 429) {
+  // Intuit's per-request transaction id; quote it to Intuit support when something goes wrong.
+  const tid = res.headers.get("intuit_tid") ?? "";
+  lastIntuitTid = tid;
+  if (res.status === 429 && !params.__retried) {
     await new Promise((r) => setTimeout(r, 1500));
-    return request<T>(path, params);
+    return request<T>(path, { ...params, __retried: "1" });
   }
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`QuickBooks ${res.status} on ${path}: ${text.slice(0, 400)}`);
+    throw new Error(`QuickBooks ${res.status} on ${path} [intuit_tid ${tid || "n/a"}]: ${text.slice(0, 400)}`);
   }
   return (await res.json()) as T;
 }
+
+/** The intuit_tid of the most recent QuickBooks response, for logs and support tickets. */
+export let lastIntuitTid = "";
 
 type QueryResponse<T> = {
   QueryResponse: { [entity: string]: T[] | number | undefined; startPosition?: number; maxResults?: number; totalCount?: number };

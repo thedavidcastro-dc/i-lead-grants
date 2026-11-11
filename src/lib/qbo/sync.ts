@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { queryAll } from "@/lib/qbo/client";
+import { queryAll, lastIntuitTid } from "@/lib/qbo/client";
 
 type Ref = { value: string; name?: string };
 type QboAccount = {
@@ -79,7 +79,7 @@ export async function syncReference(startedBy: string | null): Promise<SyncStats
     const stats: SyncStats = {
       accounts: accounts.length, classes: classes.length, vendors: vendors.length, employees: employees.length,
     };
-    await db.from("sync_runs").update({ status: "ok", finished_at: now, stats }).eq("id", run.id);
+    await db.from("sync_runs").update({ status: "ok", finished_at: now, stats: { ...stats, intuit_tid: lastIntuitTid } }).eq("id", run.id);
     return stats;
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

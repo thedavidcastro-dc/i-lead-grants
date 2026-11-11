@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { changedSince, queryAll } from "@/lib/qbo/client";
+import { changedSince, queryAll, lastIntuitTid } from "@/lib/qbo/client";
 
 /**
  * Transaction sync: expenditure transactions from QuickBooks → grants.qbo_transactions
@@ -221,11 +221,11 @@ async function withRun<T>(kind: string, startedBy: string | null, fn: (stats: Sy
   const stats = emptyStats();
   try {
     const result = await fn(stats);
-    await g.from("sync_runs").update({ status: "ok", finished_at: new Date().toISOString(), stats }).eq("id", run.id);
+    await g.from("sync_runs").update({ status: "ok", finished_at: new Date().toISOString(), stats: { ...stats, intuit_tid: lastIntuitTid } }).eq("id", run.id);
     return { stats, result };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    await g.from("sync_runs").update({ status: "error", finished_at: new Date().toISOString(), stats, error: message }).eq("id", run.id);
+    await g.from("sync_runs").update({ status: "error", finished_at: new Date().toISOString(), stats: { ...stats, intuit_tid: lastIntuitTid }, error: message }).eq("id", run.id);
     throw e;
   }
 }
