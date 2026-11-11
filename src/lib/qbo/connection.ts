@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decrypt, encrypt } from "@/lib/crypto";
-import { refreshTokens, type TokenSet } from "@/lib/qbo/oauth";
+import { IntuitAuthError, refreshTokens, type TokenSet } from "@/lib/qbo/oauth";
 import { qboEnv } from "@/lib/env";
 
 /**
@@ -87,7 +87,16 @@ export async function getAccessToken(): Promise<{ token: string; realmId: string
   if (data.access_token_enc && new Date(data.access_expires_at).getTime() > soon) {
     return { token: decrypt(data.access_token_enc), realmId: data.realm_id };
   }
-  const fresh = await refreshTokens(decrypt(data.refresh_token_enc));
+  let fresh: TokenSet;
+  try {
+    fresh = await refreshTokens(decrypt(data.refresh_token_enc));
+  } catch (e) {
+    if (e instanceof IntuitAuthError && e.isInvalidGrant) {
+      // The refresh token was revoked or expired on Intuit's side: stop trying, ask for a reconnect.
+      await markDisconnected("QuickBooks authorization was revoked or expired; reconnect QuickBooks.");
+    }
+    throw e;
+  }
   await saveTokens(data.realm_id, fresh);
   return { token: fresh.access_token, realmId: data.realm_id };
 }
