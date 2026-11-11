@@ -67,8 +67,11 @@ export async function markDisconnected(reason?: string) {
     .eq("id", 1);
 }
 
-/** A valid access token, refreshing (and persisting) when within 5 minutes of expiry. */
-export async function getAccessToken(): Promise<{ token: string; realmId: string }> {
+/**
+ * A valid access token, refreshing (and persisting) when within 5 minutes of expiry.
+ * Pass { force: true } after a 401 to refresh regardless of the stored expiry.
+ */
+export async function getAccessToken(opts: { force?: boolean } = {}): Promise<{ token: string; realmId: string }> {
   const db = createAdminClient().schema("grants");
   const { data, error } = await db
     .from(TABLE)
@@ -84,7 +87,7 @@ export async function getAccessToken(): Promise<{ token: string; realmId: string
     throw new Error("QuickBooks refresh token expired; reconnect.");
   }
   const soon = Date.now() + 5 * 60 * 1000;
-  if (data.access_token_enc && new Date(data.access_expires_at).getTime() > soon) {
+  if (!opts.force && data.access_token_enc && new Date(data.access_expires_at).getTime() > soon) {
     return { token: decrypt(data.access_token_enc), realmId: data.realm_id };
   }
   let fresh: TokenSet;

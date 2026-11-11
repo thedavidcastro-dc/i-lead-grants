@@ -10,7 +10,7 @@ export function baseUrl(): string {
 }
 
 async function request<T>(path: string, params: Record<string, string> = {}): Promise<T> {
-  const { token, realmId } = await getAccessToken();
+  const { token, realmId } = await getAccessToken({ force: params.__forceRefresh === "1" });
   const u = new URL(`${baseUrl()}/v3/company/${realmId}${path}`);
   u.searchParams.set("minorversion", MINOR_VERSION);
   for (const [k, v] of Object.entries(params)) if (!k.startsWith("__")) u.searchParams.set(k, v);
@@ -24,6 +24,10 @@ async function request<T>(path: string, params: Record<string, string> = {}): Pr
   if (res.status === 429 && !params.__retried) {
     await new Promise((r) => setTimeout(r, 1500));
     return request<T>(path, { ...params, __retried: "1" });
+  }
+  if (res.status === 401 && !params.__forceRefresh) {
+    // Access token rejected before its recorded expiry: refresh once and retry once.
+    return request<T>(path, { ...params, __forceRefresh: "1" });
   }
   if (!res.ok) {
     const text = await res.text();
