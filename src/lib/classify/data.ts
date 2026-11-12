@@ -30,12 +30,24 @@ export async function payrollAccountIds(): Promise<Set<string>> {
 export async function ensureDispositions(): Promise<{ created: number; payroll: number }> {
   const g = createAdminClient().schema("grants");
   const payroll = await payrollAccountIds();
-  const { data: lines } = await g
-    .from("qbo_lines")
-    .select("id, txn_type, txn_date, account_id, dispositions!left(id)")
-    .eq("deleted", false)
-    .eq("is_expense", true);
-  const missing = (lines ?? []).filter((l) => !(l.dispositions as unknown as Array<{ id: string }> | null)?.length);
+  // Page through both tables explicitly: the embedded one-to-one join returned an object,
+  // not an array, and the API caps a single select at 1,000 rows.
+  const lines: Array<{ id: string; txn_type: string; txn_date: string; account_id: string | null }> = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await g.from("qbo_lines").select("id, txn_type, txn_date, account_id")
+      .eq("deleted", false).eq("is_expense", true).order("id").range(from, from + 999);
+    if (error) throw new Error(error.message);
+    lines.push(...(data ?? []));
+    if (!data || data.length < 1000) break;
+  }
+  const existing = new Set<string>();
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await g.from("dispositions").select("line_id").order("line_id").range(from, from + 999);
+    if (error) throw new Error(error.message);
+    for (const d of data ?? []) existing.add(d.line_id);
+    if (!data || data.length < 1000) break;
+  }
+  const missing = lines.filter((l) => !existing.has(l.id));
   let payrollCount = 0;
   const rows = missing.map((l) => {
     // Payroll is recognised by account, whatever the transaction type: I-LEAD's payroll
@@ -47,7 +59,7 @@ export async function ensureDispositions(): Promise<{ created: number; payroll: 
       : { line_id: l.id, txn_date: l.txn_date, status: "pending", auto: false, kind: null, decided_at: null, note: null };
   });
   for (let i = 0; i < rows.length; i += 500) {
-    const { error } = await g.from("dispositions").insert(rows.slice(i, i + 500));
+    const { error } = await g.from("dispositions").upsert(rows.slice(i, i + 500), { onConflict: "line_id", ignoreDuplicates: true });
     if (error) throw new Error(error.message);
   }
   return { created: rows.length, payroll: payrollCount };
