@@ -18,10 +18,11 @@ export default async function GrantPage({ params, searchParams }: { params: Prom
   const { data: classes } = await g.from("qbo_classes").select("id, name").eq("active", true).order("name");
   const lineIds = current?.lines.map((l) => l.id) ?? [];
   const [{ data: mapped }, { data: actuals }] = lineIds.length
-    ? await Promise.all([g.from("budget_line_accounts").select("budget_line_id").in("budget_line_id", lineIds), g.from("budget_line_actuals").select("budget_line_id, allocated, allocation_count").in("budget_line_id", lineIds)])
+    ? await Promise.all([g.from("budget_line_accounts").select("budget_line_id").in("budget_line_id", lineIds), g.from("budget_line_actuals").select("budget_line_id, allocated, allocation_count, expense_allocated, payroll_allocated, payroll_draft").in("budget_line_id", lineIds)])
     : [{ data: [] }, { data: [] }];
   const mappedLines = new Set((mapped ?? []).map((m) => m.budget_line_id));
-  const actualBy = new Map((actuals ?? []).map((a) => [a.budget_line_id, { allocated: Number(a.allocated), n: Number(a.allocation_count) }]));
+  const actualBy = new Map((actuals ?? []).map((a) => [a.budget_line_id, { allocated: Number(a.allocated), n: Number(a.allocation_count), expense: Number(a.expense_allocated), payroll: Number(a.payroll_allocated), payrollDraft: Number(a.payroll_draft) }]));
+  const payrollDraftTotal = [...actualBy.values()].reduce((s, a) => s + a.payrollDraft, 0);
   const spentTotal = [...actualBy.values()].reduce((s, a) => s + a.allocated, 0);
   const isAdmin = me.role === "admin";
   const ind = grant.indirect_rule as { type?: string; rate?: number; base?: string };
@@ -59,13 +60,13 @@ export default async function GrantPage({ params, searchParams }: { params: Prom
                 <thead className="text-left text-xs uppercase tracking-wide text-muted font-mono"><tr><th className="py-1">Line</th><th className="text-right">Budget</th><th className="text-right">Charged</th><th className="text-right">Remaining</th><th></th></tr></thead>
                 <tbody>
                   {current.lines.map((l) => {
-                    const a = actualBy.get(l.id) ?? { allocated: 0, n: 0 };
+                    const a = actualBy.get(l.id) ?? { allocated: 0, n: 0, expense: 0, payroll: 0, payrollDraft: 0 };
                     const remaining = Number(l.amount) - a.allocated;
                     return (
                       <tr key={l.id} className="border-t border-line">
                         <td className="py-1">{l.category}{!mappedLines.has(l.id) && <span className="text-warn text-xs"> · unmapped</span>}</td>
                         <td className="text-right font-mono whitespace-nowrap">{money(l.amount)}</td>
-                        <td className="text-right font-mono whitespace-nowrap">{a.n > 0 ? <Link href={`/grants/${id}/lines?line=${l.id}`} className="text-navy underline">{money(a.allocated)}</Link> : <span className="text-muted">—</span>}</td>
+                        <td className="text-right font-mono whitespace-nowrap">{a.allocated ? <>{a.n > 0 ? <Link href={`/grants/${id}/lines?line=${l.id}`} className="text-navy underline">{money(a.expense)}</Link> : null}{a.payroll ? <span title="certified payroll">{a.n > 0 ? " + " : ""}<Link href="/payroll" className="text-navy underline">{money(a.payroll)}</Link></span> : null}{a.n > 0 && a.payroll ? <span className="block text-xs text-muted">= {money(a.allocated)}</span> : null}</> : <span className="text-muted">—</span>}{a.payrollDraft ? <span className="block text-xs text-muted">+ {money(a.payrollDraft)} payroll not yet certified</span> : null}</td>
                         <td className={`text-right font-mono whitespace-nowrap ${remaining < 0 ? "text-accent" : ""}`}>{money(remaining)}</td>
                         <td className="pl-2 w-24"><div className="h-1.5 rounded bg-line overflow-hidden"><div className={`h-full ${remaining < 0 ? "bg-accent" : "bg-navy"}`} style={{ width: `${Math.min(100, Number(l.amount) > 0 ? (a.allocated / Number(l.amount)) * 100 : 0)}%` }} /></div></td>
                       </tr>
@@ -74,6 +75,7 @@ export default async function GrantPage({ params, searchParams }: { params: Prom
                 </tbody>
                 <tfoot><tr className="border-t-2 border-line-strong font-medium"><td className="py-1">Total</td><td className="text-right font-mono">{money(current.version.total)}</td><td className="text-right font-mono">{money(spentTotal)}</td><td className="text-right font-mono">{money(Number(current.version.total ?? 0) - spentTotal)}</td><td></td></tr></tfoot>
               </table>
+              {payrollDraftTotal > 0 && <p className="text-xs text-muted">Payroll drafted but not certified: {money(payrollDraftTotal)} — counts once the pay run is certified.</p>}
               <p className="flex gap-4"><Link href={`/grants/${id}/mapping`} className="text-navy underline">Account mapping</Link><Link href={`/grants/${id}/lines`} className="text-navy underline">All charged expenses</Link><Link href="/queue" className="text-navy underline">Classification queue</Link></p>
             </div>
           ) : (

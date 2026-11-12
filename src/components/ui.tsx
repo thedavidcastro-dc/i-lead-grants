@@ -47,6 +47,7 @@ export function StatusPill({ status }: { status: string }) {
   const tone: Record<string, string> = {
     prospect: "bg-line text-ink", proposed: "bg-navy-soft text-navy", awarded: "bg-navy-soft text-navy",
     active: "bg-green-50 text-good", closed: "bg-line text-muted", draft: "bg-accent-soft text-accent", approved: "bg-green-50 text-good", superseded: "bg-line text-muted",
+    uploaded: "bg-line text-ink", extracted: "bg-accent-soft text-accent", checked: "bg-navy-soft text-navy", allocated: "bg-navy-soft text-navy", certified: "bg-green-50 text-good",
   };
   return <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-mono uppercase tracking-wide ${tone[status] ?? "bg-line"}`}>{status}</span>;
 }
